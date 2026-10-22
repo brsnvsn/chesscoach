@@ -1,0 +1,9 @@
+node_modules
+dist
+public/stockfish
+.DS_Store
+*.log
+.env
+.env.local
+.vercel
+tmp/
