@@ -106,7 +106,10 @@ export function useGame(opts: GameOpts) {
     setThinking(true)
     const engine = getEngine()
     let uci: string
+    // feel human: the bot "thinks" for 0.7-1.6s minimum, in parallel with the engine search
+    const pause = new Promise<void>(r => setTimeout(r, 700 + Math.random() * 900))
     try { uci = engine ? await chooseBotMove(engine, chess.fen(), optsRef.current.botLevel) : randomLegal() } catch { uci = randomLegal(); setEngineMissing(true) }
+    await pause
     if (!alive(g)) return
     const before = new Chess(chess.fen())
     const mv = chess.move(uciToMove(uci))
