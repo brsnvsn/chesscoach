@@ -4,6 +4,7 @@ import { checkMoveSafety, freePieces, developmentStats, listJoin, NAME, other, t
 import {
   cctScan, explainBotMove, explainGrade, explainUserMoveInstant, gradeMove, describeBest, msg, uciToMove,
   type CoachMsg, type Grade, type Shape, type UserMoveContext,
+  describePunish,
 } from '../chess/explain'
 import { chooseBotMove, botFor } from '../chess/bots'
 import { cpOf, type SearchResult } from '../chess/uci'
@@ -15,7 +16,7 @@ export interface GameStats {
   userMoves: number; blunders: number; mistakes: number; inaccuracies: number; hangs: number
   missedFree: number; offeredFree: number; quizTotal: number; quizCorrect: number; scans: number
 }
-export interface KeyMoment { ply: number; san: string; grade: Grade; loss: number; bestSan?: string; bestWhy?: string; fenBefore: string; bestUci?: string }
+export interface KeyMoment { ply: number; san: string; grade: Grade; loss: number; bestSan?: string; bestWhy?: string; fenBefore: string; bestUci?: string; punish?: string }
 export type GameResult = 'win' | 'loss' | 'draw'
 export interface Over { result: GameResult; reason: string }
 export interface Judgement { passed: boolean; reasons: string[] }
@@ -162,7 +163,8 @@ export function useGame(opts: GameOpts) {
     setMoves(m => [...m, { san: mv.san, color: mv.color }])
     const st = statsRef.current
     st.userMoves++
-    if (safety.net <= -2 && !chess.isCheckmate()) st.hangs++
+    const seeHang = safety.net <= -2 && !chess.isCheckmate()
+    let hangCounted = false
     if (freeBefore.length) st.offeredFree++
     const ctx: UserMoveContext = { before, mv, after: chess, safety, freeBefore, ply }
     push(...explainUserMoveInstant(ctx, userColor))
@@ -185,7 +187,9 @@ export function useGame(opts: GameOpts) {
           const bestCp = cpOf(pre.lines[0])
           const playedCp = -cpOf(post.lines[0])
           const res = gradeMove(bestCp, playedCp, uci === pre.lines[0].move)
-          ctx.grade = res; ctx.bestUci = pre.lines[0].move
+          ctx.grade = res; ctx.bestUci = pre.lines[0].move; ctx.replyUci = post.lines[0].move
+          // a hang only counts if the engine agrees it cost at least ~1.5 pawns (not a gambit or a tactic that works)
+          if (seeHang && bestCp - playedCp >= 150) { st.hangs++; hangCounted = true }
           const gm = explainGrade(ctx, userColor)
           if (gm && res.grade !== 'good') push(gm)
           setMoves(m => m.map((e, i) => (i === idx ? { ...e, grade: res.grade } : e)))
@@ -195,7 +199,7 @@ export function useGame(opts: GameOpts) {
           if (['inaccuracy', 'mistake', 'blunder'].includes(res.grade) && freeBefore.length && !freeBefore.some(f => f.square === to)) st.missedFree++
           if (res.grade === 'mistake' || res.grade === 'blunder') {
             const b = describeBest(before, pre.lines[0].move)
-            momentsRef.current.push({ ply, san: mv.san, grade: res.grade, loss: res.loss, bestSan: b.san, bestWhy: b.why, fenBefore: before.fen(), bestUci: pre.lines[0].move })
+            momentsRef.current.push({ ply, san: mv.san, grade: res.grade, loss: res.loss, bestSan: b.san, bestWhy: b.why, fenBefore: before.fen(), bestUci: pre.lines[0].move, punish: describePunish(chess, post.lines[0].move) })
             sfx.bad()
           }
           syncStats()
@@ -203,6 +207,7 @@ export function useGame(opts: GameOpts) {
         }
       } catch { /* engine hiccup: carry on without a grade */ }
     }
+    if (seeHang && !hangCounted && !engine) { st.hangs++; syncStats(); if (runJudge(g, null, true)) return }
     if (!alive(g)) return
     await botTurn(g)
   }, [botTurn, checkEnd, finish, moves.length, push, runJudge])

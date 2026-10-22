@@ -132,6 +132,8 @@ export interface UserMoveContext {
   freeBefore: FreePiece[]
   grade?: { grade: Grade; loss: number }
   bestUci?: string
+  /** the opponent's best answer to the move actually played */
+  replyUci?: string
   ply: number
 }
 
@@ -163,8 +165,8 @@ export function describeBest(before: Chess, uci: string): { san: string; why: st
   try { mv = probe.move(uciToMove(uci)) } catch { return { san: uci, why: 'was stronger', shapes: [] } }
   const shapes: Shape[] = [{ orig: mv.from, dest: mv.to, brush: 'green' }]
   const free = freePieces(before).find(f => f.square === mv.to)
-  let why = 'was the strongest move here'
-  if (probe.isCheckmate()) why = 'was checkmate'
+  let why = ''
+  if (probe.isCheckmate()) why = 'is checkmate'
   else if (matesInOne(probe).length === 0 && probe.moves().length === 0) why = 'ends the game'
   else if (free) why = `wins a free ${a(free.piece)}`
   else if (mv.captured) why = `wins the ${a(mv.captured)} on ${mv.to}`
@@ -188,6 +190,14 @@ export function describeBest(before: Chess, uci: string): { san: string; why: st
   return { san: mv.san, why, shapes }
 }
 
+/** How the opponent punishes the move just played, e.g. "Black can answer **Nxe4**, which wins the bishop on e4." */
+export function describePunish(after: Chess, replyUci: string): string {
+  const side = after.turn() === 'w' ? 'White' : 'Black'
+  const r = describeBest(after, replyUci)
+  const why = r.why.replace('castles your king to safety', 'castles').replace(/\byour\b/g, 'their')
+  return why ? `${side} can answer **${r.san}**, which ${why}.` : `${side}'s strong answer is **${r.san}**.`
+}
+
 /** The engine-verdict message (arrives a moment after the move). */
 export function explainGrade(c: UserMoveContext, userColor: Color): CoachMsg | null {
   if (!c.grade) return null
@@ -198,10 +208,11 @@ export function explainGrade(c: UserMoveContext, userColor: Color): CoachMsg | n
   const best = c.bestUci ? describeBest(c.before, c.bestUci) : null
   const missed = c.freeBefore.length && !c.freeBefore.some(f => f.square === c.mv.to)
     ? ` You also had a free ${a(c.freeBefore[0].piece)} on ${c.freeBefore[0].square} to take.` : ''
-  const betterTxt = best ? ` Better was **${best.san}**, which ${best.why}.` : ''
+  const betterTxt = best ? (best.why ? ` Better was **${best.san}**, which ${best.why}.` : ` Better was **${best.san}**.`) : ''
+  const punish = c.replyUci && grade !== 'inaccuracy' ? ` ${describePunish(c.after, c.replyUci)}` : ''
   const word = grade === 'inaccuracy' ? 'a small slip' : grade === 'mistake' ? 'it gives away a real advantage' : 'it likely loses material or the game'
   void userColor
-  return msg({ who: 'coach', tone: grade === 'inaccuracy' ? 'warn' : 'bad', title: label, ply: c.ply, text: `${c.mv.san} — ${word} (about ${Math.round(loss)}% of your winning chances).${missed}${betterTxt}`, shapes: best?.shapes })
+  return msg({ who: 'coach', tone: grade === 'inaccuracy' ? 'warn' : 'bad', title: label, ply: c.ply, text: `${c.mv.san} — ${word} (about ${Math.round(loss)}% of your winning chances).${punish}${missed}${betterTxt}`, shapes: best?.shapes })
 }
 
 // ---------- the Checks / Captures / Threats scan ----------

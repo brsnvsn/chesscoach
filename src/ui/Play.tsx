@@ -1,3 +1,4 @@
+import { Md } from './Md'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, type Color } from 'chess.js'
 import { Board } from './Board'
@@ -144,7 +145,7 @@ export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
       if (st.userMoves >= 8) bump('play')
       for (const m of mistakes) {
         if (!m.bestUci) continue
-        const p: Puzzle = { id: `game-${Date.now()}-${m.ply}`, fen: m.fenBefore, moves: [m.bestUci], themes: ['ownGame'], rating: 800, setup: false, source: 'game', note: `${m.bestSan} ${m.bestWhy}.` }
+        const p: Puzzle = { id: `game-${Date.now()}-${m.ply}`, fen: m.fenBefore, moves: [m.bestUci], themes: ['ownGame'], rating: 800, setup: false, source: 'game', note: m.bestWhy ? `${m.bestSan} ${m.bestWhy}.` : `${m.bestSan} was the best move here.` }
         recordPuzzle({ id: p.id, themes: p.themes }, false, p, { noXp: true })
       }
     }
@@ -195,7 +196,7 @@ export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
               <div className="stat"><b>{g.stats.blunders}</b><span>Blunders</span></div>
               <div className="stat"><b>{g.stats.mistakes}</b><span>Mistakes</span></div>
               <div className="stat"><b>{g.stats.hangs}</b><span>Pieces hung</span></div>
-              <div className="stat"><b>{g.stats.missedFree}/{g.stats.offeredFree}</b><span>Free pieces missed</span></div>
+              <div className="stat"><b>{g.stats.missedFree}</b><span>Free pieces missed{g.stats.offeredFree ? ` (of ${g.stats.offeredFree})` : ''}</span></div>
               <div className="stat"><b>{g.stats.quizTotal ? `${g.stats.quizCorrect}/${g.stats.quizTotal}` : '–'}</b><span>Safety counts right</span></div>
               <div className="stat"><b>{g.stats.userMoves}</b><span>Your moves</span></div>
             </div>
@@ -204,7 +205,7 @@ export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
                 <h3>Key moments</h3>
                 {g.moments.current.slice().sort((a, b) => b.loss - a.loss).slice(0, 3).map(m => (
                   <p key={m.ply} className="small" style={{ marginBottom: 6 }}>
-                    Move {Math.ceil(m.ply / 2)}: <b>{m.san}</b> ({m.grade}). Better: <b>{m.bestSan}</b>, which {m.bestWhy}.
+                    Move {Math.ceil(m.ply / 2)}: <b>{m.san}</b> ({m.grade}). {m.punish && <Md text={m.punish} />} Better was <b>{m.bestSan}</b>{m.bestWhy ? `, which ${m.bestWhy}` : ''}.
                   </p>
                 ))}
                 <p className="muted small">These are saved as puzzles in your review queue so you can replay them tomorrow.</p>
