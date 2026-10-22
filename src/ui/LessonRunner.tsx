@@ -84,10 +84,10 @@ export function LessonRunner({ lesson, levelName, hasNext, onExit, onNext }: Pro
           <div className="modal">
             <div className="bigbadge">📘</div>
             <h2>Lesson complete</h2>
-            <div className="sub">+20 XP{finished.dayDone ? ' · Daily goal reached, streak extended!' : ''}</div>
+            <div className="sub">✓ Saved · +20 XP · Train is done for today{finished.dayDone ? ' · Day complete, streak safe 🔥' : ''}</div>
             <div className="row" style={{ justifyContent: 'center' }}>
-              {hasNext && <button className="btn" onClick={onNext}>Next lesson</button>}
-              <button className={`btn ${hasNext ? 'ghost' : ''}`} onClick={onExit}>Back to path</button>
+              <button className="btn" onClick={onExit}>Done</button>
+              {hasNext && <button className="btn ghost" onClick={onNext}>Next lesson</button>}
             </div>
           </div>
         </div>

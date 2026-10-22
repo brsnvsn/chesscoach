@@ -114,7 +114,7 @@ export function useGame(opts: GameOpts) {
     const before = new Chess(chess.fen())
     const mv = chess.move(uciToMove(uci))
     const ply = chess.history().length
-    mv.captured ? sfx.capture() : chess.isCheck() ? sfx.check() : sfx.move()
+    sfx.play(mv, chess)
     setFen(chess.fen()); setLastMove([mv.from, mv.to])
     setMoves(m => [...m, { san: mv.san, color: mv.color }])
     push(...explainBotMove(before, mv, chess, optsRef.current.userColor, botFor(optsRef.current.botLevel).name, ply))
@@ -156,7 +156,7 @@ export function useGame(opts: GameOpts) {
     const freeBefore = freePieces(chess)
     const mv: Move = chess.move({ from, to, promotion })
     const ply = chess.history().length
-    mv.captured ? sfx.capture() : chess.isCheck() ? sfx.check() : sfx.move()
+    sfx.play(mv, chess)
     setFen(chess.fen()); setLastMove([from, to]); setSyncKey(k => k + 1)
     const idx = moves.length
     setMoves(m => [...m, { san: mv.san, color: mv.color }])

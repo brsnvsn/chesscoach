@@ -29,3 +29,5 @@ Deploy anywhere static: Vercel (framework: Vite) or GitHub Pages (workflow inclu
 Built on [chessground](https://github.com/lichess-org/chessground) (Lichess), [chess.js](https://github.com/jhlywa/chess.js) and [Stockfish](https://stockfishchess.org/). Because chessground and Stockfish are GPL, this project is **GPL-3.0-or-later** (see `LICENSE`).
 
 Piece set: **Maestro** by sadsnake1, [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (from the Lichess repository). Non-commercial use only; swap the set in `src/assets/pieces/` before any commercial use.
+
+Move and capture sounds: Lichess "standard" sound set (lichess-org/lila, AGPLv3+).

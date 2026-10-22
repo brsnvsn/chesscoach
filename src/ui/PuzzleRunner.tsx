@@ -5,7 +5,7 @@ import { Md } from './Md'
 import type { Shape } from '../chess/explain'
 import { uciToMove } from '../chess/explain'
 import type { Puzzle, CountQ, TradeQ, PrincipleQ } from '../data/types'
-import { bump, recordPuzzle, useProgress } from '../store/progress'
+import { bump, recordPuzzle, useProgress, todayRecord } from '../store/progress'
 import { sfx } from './sfx'
 
 export type Item =
@@ -48,7 +48,7 @@ function MoveItem({ item, header, strict, onResolved, onNext, isLast }: ItemProp
     if (p.setup === false) { setIdx(0); setStatus('solving') }
     else later(() => {
       const m = c.move(uciToMove(p.moves[0]))
-      setFen(c.fen()); setLast([m.from, m.to]); setIdx(1); setStatus('solving'); sfx.move()
+      setFen(c.fen()); setLast([m.from, m.to]); setIdx(1); setStatus('solving'); sfx.play(m, c)
     }, 450)
     return () => timers.current.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,8 +78,8 @@ function MoveItem({ item, header, strict, onResolved, onNext, isLast }: ItemProp
     try { probe.move({ from, to, promotion: promo }); mate = probe.isCheckmate() } catch { setSync(k => k + 1); return }
     const ok = uci === exp || (idx === firstUser && !!p.alt?.includes(uci)) || (mate && p.themes.some(t => t.startsWith('mate')))
     if (ok) {
-      c.move({ from, to, promotion: promo })
-      setFen(c.fen()); setLast([from, to]); setShapes([]); setCircles([]); sfx.move()
+      const played = c.move({ from, to, promotion: promo })
+      setFen(c.fen()); setLast([from, to]); setShapes([]); setCircles([]); sfx.play(played, c)
       const nextIdx = idx + 1
       const isAltEnd = uci !== exp
       if (nextIdx >= p.moves.length || isAltEnd || c.isCheckmate()) {
@@ -90,7 +90,7 @@ function MoveItem({ item, header, strict, onResolved, onNext, isLast }: ItemProp
         setNote({ tone: 'info', text: 'Good. Keep going…' })
         later(() => {
           const m = c.move(uciToMove(p.moves[nextIdx]))
-          setFen(c.fen()); setLast([m.from, m.to]); setIdx(nextIdx + 1); sfx.move()
+          setFen(c.fen()); setLast([m.from, m.to]); setIdx(nextIdx + 1); sfx.play(m, c)
         }, 450)
         setIdx(nextIdx)
       }
@@ -266,7 +266,7 @@ export interface RunnerProps {
 }
 
 export function PuzzleRunner(p: RunnerProps) {
-  useProgress()
+  const st = useProgress()
   const [i, setI] = useState(0)
   const [results, setResults] = useState<boolean[]>([])
   const [done, setDone] = useState<RunSummary | null>(null)
@@ -311,7 +311,8 @@ export function PuzzleRunner(p: RunnerProps) {
     <div>
       <div className="row"><b>{p.title}</b><span className="spacer" />
         {p.seconds ? <span className="chip">⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span> : null}
-        <span className="chip">{Math.min(i + 1, p.count)}/{p.count}</span></div>
+        <span className="chip">{Math.min(i + 1, p.count)}/{p.count}</span>
+        <button className="link small" onClick={p.onExit}>{p.mode === 'boss' ? 'Quit' : 'Exit'}</button></div>
       <div className="dots" style={{ marginTop: 8, flexWrap: 'wrap' }}>
         {Array.from({ length: p.count }, (_, k) => <i key={k} className={k < results.length ? 'on' : k === i ? 'cur' : ''} style={k < results.length && !results[k] ? { background: 'var(--red)' } : undefined} />)}
       </div>
@@ -339,10 +340,14 @@ export function PuzzleRunner(p: RunnerProps) {
             <div className="sub">
               {done.passed === undefined ? (done.correct === done.total ? 'Perfect set.' : 'Anything you missed will come back in your review queue.') : done.passed ? (p.passLabel ?? 'Boss defeated.') : 'Look at what you missed and try again — the puzzles will be different.'}
             </div>
+            {p.mode !== 'boss' && (() => { const t = todayRecord(st); const goal = p.mode === 'drill' ? t.trainDone : t.reviewDone
+              return <div className="small" style={{ textAlign: 'center', color: goal ? 'var(--green-hi)' : undefined }}>✓ Saved.{goal ? ` ${p.mode === 'drill' ? 'Train' : 'Warm-up'} is done for today.` : ''}{t.complete ? ' Day complete, streak safe 🔥' : ''}</div> })()}
             <div className="row" style={{ justifyContent: 'center' }}>
+              {p.mode === 'boss' && done.passed && <button className="btn" onClick={p.onExit}>Continue</button>}
               {p.mode === 'boss' && !done.passed && p.onAgain && <button className="btn" onClick={p.onAgain}>Try again</button>}
-              {p.mode === 'drill' && p.onAgain && <button className="btn" onClick={p.onAgain}>Another set</button>}
-              <button className={`btn ${(p.mode === 'boss' && !done.passed) || (p.mode === 'drill') ? 'ghost' : ''}`} onClick={p.onExit}>{p.mode === 'boss' && done.passed ? 'Continue' : 'Back'}</button>
+              {p.mode === 'boss' && !done.passed && <button className="btn ghost" onClick={p.onExit}>Back to path</button>}
+              {p.mode !== 'boss' && <button className="btn" onClick={p.onExit}>Done</button>}
+              {p.mode === 'drill' && p.onAgain && <button className="btn ghost" onClick={p.onAgain}>Another set</button>}
             </div>
           </div>
         </div>
