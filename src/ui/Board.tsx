@@ -5,7 +5,7 @@ import type { Api } from 'chessground/api'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import 'chessground/assets/chessground.base.css'
-import 'chessground/assets/chessground.cburnett.css'
+import '../assets/pieces/maestro/maestro.css'
 import type { Shape } from '../chess/explain'
 
 export interface BoardProps {
