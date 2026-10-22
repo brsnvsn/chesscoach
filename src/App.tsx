@@ -10,11 +10,13 @@ import { loadExtraPuzzles } from './data/puzzles'
 import { setForSpec, warmupSet, reviewSet } from './ui/drillFactory'
 import { passBoss, useProgress, bump, addXp, getState } from './store/progress'
 import { sfx } from './ui/sfx'
+import type { Puzzle } from './data/types'
 
 type View =
   | Nav
   | { v: 'game'; cfg: GameConfig; key: number }
   | { v: 'scenario'; id: string; level: number; boss: boolean; stage: number; key: number }
+  | { v: 'mistakes'; puzzles: Puzzle[]; key: number }
 
 /** Debug/share link: ?fen=<FEN>&bot=1&color=w&assist=quiz starts a game from any position. */
 function initialView(): View {
@@ -46,7 +48,7 @@ export default function App() {
   /** back to the path; a level-up celebration waits until the result screen has been dismissed */
   const home = () => { setView({ v: 'home' }); if (pendingUp.current !== null) { setLevelUp(pendingUp.current); pendingUp.current = null } }
   const go = (n: Nav) => { setKey(k => k + 1); setView(n) }
-  const active = view.v === 'home' || view.v === 'lesson' || view.v === 'drill' || view.v === 'boss' || view.v === 'warmup' ? 'home' : view.v === 'game' || view.v === 'scenario' ? 'play' : view.v
+  const active = view.v === 'home' || view.v === 'lesson' || view.v === 'drill' || view.v === 'boss' || view.v === 'warmup' ? 'home' : view.v === 'game' || view.v === 'scenario' || view.v === 'mistakes' ? 'play' : view.v
 
   const bossPassed = (level: number, defer = false) => {
     const first = !getState().bossesPassed.includes(level)
@@ -59,9 +61,10 @@ export default function App() {
   let body: React.ReactNode = null
   if (view.v === 'home') body = <Home go={go} />
   else if (view.v === 'play') body = <PlaySetup onStart={cfg => setView({ v: 'game', cfg, key: Date.now() })} />
-  else if (view.v === 'game') body = <Game key={view.key} config={view.cfg} onExit={home} onAgain={() => setView({ v: 'game', cfg: { ...view.cfg, color: view.cfg.color }, key: Date.now() })} onReview={() => go({ v: 'review' })} onDone={() => home()} />
+  else if (view.v === 'game') body = <Game key={view.key} config={view.cfg} onExit={home} onAgain={() => setView({ v: 'game', cfg: { ...view.cfg, color: view.cfg.color }, key: Date.now() })} onReview={puzzles => setView({ v: 'mistakes', puzzles, key: Date.now() })} onDone={() => home()} />
   else if (view.v === 'review') body = <ReviewPage onStart={() => setView({ v: 'drill', level: -1 })} />
   else if (view.v === 'settings') body = <SettingsPage />
+  else if (view.v === 'mistakes') body = <PuzzleRunner key={view.key} title="Your mistakes" mode="review" count={view.puzzles.length} getItem={i => ({ t: 'move', puzzle: view.puzzles[i] })} onExit={home} />
   else if (view.v === 'warmup') {
     const set = warmupSet(Math.min(s.level, 10))
     body = <PuzzleRunner key={key} title="Warm-up" mode="warmup" count={set.count} getItem={set.getItem} onExit={home} onAgain={() => go({ v: 'warmup' })} />

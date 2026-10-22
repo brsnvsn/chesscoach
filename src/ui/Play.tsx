@@ -112,7 +112,7 @@ function Strip({ name, sub, glyph, adv }: { name: string; sub?: string; glyph: s
   )
 }
 
-interface GameProps { config: GameConfig; onExit: () => void; onAgain: () => void; onDone?: (d: DoneInfo) => void; onReview?: () => void }
+interface GameProps { config: GameConfig; onExit: () => void; onAgain: () => void; onDone?: (d: DoneInfo) => void; onReview?: (puzzles: Puzzle[]) => void }
 
 export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
   const prog = useProgress()
@@ -124,6 +124,7 @@ export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
   const adv = material(chess, config.color) - material(chess, other(config.color))
   const recorded = useRef(false)
   const [summary, setSummary] = useState<null | { xp: { label: string; n: number }[]; total: number; mistakes: number }>(null)
+  const gamePuzzles = useRef<Puzzle[]>([])
 
   // when the game ends: score it, save it, queue mistakes for review
   useEffect(() => {
@@ -147,6 +148,7 @@ export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
         if (!m.bestUci) continue
         const p: Puzzle = { id: `game-${Date.now()}-${m.ply}`, fen: m.fenBefore, moves: [m.bestUci], themes: ['ownGame'], rating: 800, setup: false, source: 'game', note: m.bestWhy ? `${m.bestSan} ${m.bestWhy}.` : `${m.bestSan} was the best move here.` }
         recordPuzzle({ id: p.id, themes: p.themes }, false, p, { noXp: true })
+        gamePuzzles.current.push(p)
       }
     }
     setSummary({ xp: lines, total, mistakes: mistakes.length })
@@ -223,7 +225,7 @@ export function Game({ config, onExit, onAgain, onDone, onReview }: GameProps) {
               ) : (
                 <>
                   <button className="btn" onClick={onAgain}>Play again</button>
-                  {summary.mistakes > 0 && onReview && <button className="btn ghost" onClick={onReview}>Review mistakes</button>}
+                  {gamePuzzles.current.length > 0 && onReview && <button className="btn ghost" onClick={() => onReview(gamePuzzles.current)}>Review mistakes ({gamePuzzles.current.length})</button>}
                   <button className="btn ghost" onClick={onExit}>Home</button>
                 </>
               )}
